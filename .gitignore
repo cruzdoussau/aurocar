@@ -22,3 +22,6 @@ pnpm-debug.log*
 # system
 .DS_Store
 Thumbs.db
+
+# local source image dropzone
+imagenes/hero-aurocar-v2.png

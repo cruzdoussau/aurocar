@@ -23,7 +23,7 @@ export const serviceImages = {
   premium: "/imagenes/WhatsApp Image 2026-07-14 at 19.45.19.jpeg",
   tapiceria: "/imagenes/WhatsApp Image 2026-07-14 at 19.45.20.jpeg",
   precios: "/imagenes/WhatsApp Image 2026-07-07 at 17.55.34.jpeg",
-  hero: "/imagenes/ChatGPT Image 14 jul 2026, 23_27_41.png"
+  hero: "/imagenes/hero-aurocar-v2.png"
 };
 
 export const services: AurocarService[] = [

@@ -49,8 +49,22 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const supabase = getSupabaseAdmin();
+  const blocksSlot = (booking: Booking) =>
+    booking.booking_date === parsed.data.booking_date &&
+    booking.booking_time === parsed.data.booking_time &&
+    ["pendiente", "confirmada"].includes(booking.status);
 
   if (supabase) {
+    const { data: existing, error: existingError } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("booking_date", parsed.data.booking_date)
+      .eq("booking_time", parsed.data.booking_time)
+      .in("status", ["pendiente", "confirmada"]);
+    if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+    if ((existing || []).length > 0) {
+      return NextResponse.json({ error: "Ese horario acaba de ser reservado. Elige otro bloque disponible." }, { status: 409 });
+    }
     const { count } = await supabase.from("bookings").select("id", { count: "exact", head: true });
     const booking = createBooking(parsed.data, service.name, generateBookingCode((count || 0) + 1), now);
     const { data, error } = await supabase.from("bookings").insert(booking).select("*").single();
@@ -59,6 +73,9 @@ export async function POST(request: Request) {
   }
 
   const bookings = await readLocalBookings();
+  if (bookings.some(blocksSlot)) {
+    return NextResponse.json({ error: "Ese horario acaba de ser reservado. Elige otro bloque disponible." }, { status: 409 });
+  }
   const booking = createBooking(parsed.data, service.name, generateBookingCode(bookings.length + 1), now);
   bookings.push(booking);
   await writeLocalBookings(bookings);
@@ -99,9 +116,9 @@ function createBooking(data: Record<string, unknown>, serviceName: string, code:
     customer_name: String(data.customer_name),
     phone: String(data.phone),
     email: String(data.email),
-    vehicle_brand: String(data.vehicle_brand),
-    vehicle_model: String(data.vehicle_model),
-    license_plate: String(data.license_plate).toUpperCase(),
+    vehicle_brand: data.vehicle_brand ? String(data.vehicle_brand) : "No informado",
+    vehicle_model: data.vehicle_model ? String(data.vehicle_model) : "No informado",
+    license_plate: data.license_plate ? String(data.license_plate).toUpperCase() : "No informada",
     vehicle_type: String(data.vehicle_type),
     service_id: String(data.service_id),
     service_name: serviceName,

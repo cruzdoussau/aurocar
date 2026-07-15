@@ -6,17 +6,13 @@ export const bookingSchema = z.object({
   customer_name: z.string().min(3, "Ingresa tu nombre completo."),
   phone: z.string().min(8, "Ingresa un telefono valido."),
   email: z.string().email("Ingresa un correo valido."),
-  vehicle_brand: z.string().min(2, "Indica la marca del vehiculo."),
-  vehicle_model: z.string().min(1, "Indica el modelo del vehiculo."),
-  license_plate: z.string().min(5, "Ingresa la patente."),
   vehicle_type: z.enum(company.vehicleTypes as [string, ...string[]], {
     errorMap: () => ({ message: "Selecciona el tipo de vehiculo." })
   }),
-  service_id: z.string().refine((value) => services.some((service) => service.id === value), "Selecciona un servicio."),
+  service_id: z.string().refine((value) => services.some((service) => service.id === value), "Selecciona un servicio.").default(services[0].id),
   booking_date: z.string().refine(isBookableDate, "Elige una fecha de lunes a sabado y no pasada."),
   booking_time: z.string().refine(isBookableTime, "Selecciona un horario de atencion valido."),
-  notes: z.string().max(600, "Maximo 600 caracteres.").optional(),
-  accepted_policies: z.boolean().refine((value) => value, "Debes aceptar las politicas de reserva.")
+  accepted_policies: z.boolean().default(true)
 });
 
 export const contactSchema = z.object({

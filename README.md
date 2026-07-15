@@ -1,6 +1,6 @@
 # Aurocar Booking
 
-Sitio oficial de Aurocar para servicios de detailing, lavado, tapiceria y pulido de focos.
+Sitio oficial de Aurocar para servicios de limpieza, detailing automotriz, lavado de vehiculos, tapiceria y pulido de focos.
 
 ## Stack
 

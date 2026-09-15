@@ -10,18 +10,19 @@ export const company = {
   address: process.env.NEXT_PUBLIC_AUROCAR_ADDRESS || "Direccion por confirmar",
   paymentLink: "https://link.mercadopago.cl/aurocar",
   scheduleLabel: "Lunes a sabado de 09:00 a 18:00 horas. Domingo cerrado.",
+  closingTime: "18:00",
   availableDays: [1, 2, 3, 4, 5, 6],
   timeSlots: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"],
   vehicleTypes: ["City car", "Sedan", "SUV", "Camioneta XL", "Furgon"]
 };
 
 export const serviceImages = {
-  simple: "/imagenes/WhatsApp Image 2026-07-14 at 17.48.24.jpeg",
-  vip: "/imagenes/WhatsApp Image 2026-07-14 at 17.48.25 (1).jpeg",
-  focos: "/imagenes/WhatsApp Image 2026-07-14 at 17.48.25 (2).jpeg",
-  intermedio: "/imagenes/WhatsApp Image 2026-07-14 at 17.48.25.jpeg",
-  premium: "/imagenes/WhatsApp Image 2026-07-14 at 19.45.19.jpeg",
-  tapiceria: "/imagenes/WhatsApp Image 2026-07-14 at 19.45.20.jpeg",
+  simple: "/imagenes/service-simple.png",
+  vip: "/imagenes/service-vip.png",
+  focos: "/imagenes/service-focos.png",
+  intermedio: "/imagenes/service-intermedio.png",
+  premium: "/imagenes/service-premium.png",
+  tapiceria: "/imagenes/service-tapiceria.png",
   precios: "/imagenes/WhatsApp Image 2026-07-07 at 17.55.34.jpeg",
   hero: "/imagenes/hero-aurocar-v2.png"
 };

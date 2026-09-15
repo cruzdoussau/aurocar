@@ -1,6 +1,6 @@
 import { format, isBefore, isSunday, parseISO, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { company } from "@/lib/constants";
+import { company, services } from "@/lib/constants";
 import type { Booking } from "@/types/booking";
 
 export function isBookableDate(value: string) {
@@ -11,6 +11,27 @@ export function isBookableDate(value: string) {
 
 export function isBookableTime(value: string) {
   return company.timeSlots.includes(value);
+}
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function serviceDuration(serviceId: string) {
+  return services.find((service) => service.id === serviceId)?.durationMinutes || 60;
+}
+
+export function slotFitsSchedule(time: string, durationMinutes: number) {
+  return timeToMinutes(time) + durationMinutes <= timeToMinutes(company.closingTime);
+}
+
+export function slotConflicts(candidateTime: string, candidateServiceId: string, existingTime: string, existingServiceId: string) {
+  const candidateStart = timeToMinutes(candidateTime);
+  const candidateEnd = candidateStart + serviceDuration(candidateServiceId);
+  const existingStart = timeToMinutes(existingTime);
+  const existingEnd = existingStart + serviceDuration(existingServiceId);
+  return candidateStart < existingEnd && existingStart < candidateEnd;
 }
 
 export function generateBookingCode(sequence: number) {

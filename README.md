@@ -29,7 +29,8 @@ Copia `.env.example` a `.env.local` y completa:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_ADMIN_PASSWORD=aurocar-demo
+ADMIN_PASSWORD=aurocar-demo
+ADMIN_SESSION_SECRET=una-clave-larga-y-privada
 NEXT_PUBLIC_WHATSAPP_NUMBER=
 NEXT_PUBLIC_AUROCAR_ADDRESS=
 ```
@@ -45,12 +46,13 @@ Si Supabase no esta configurado, la app guarda reservas en `.data/bookings.json`
 
 ## Flujo de reserva
 
-1. Cliente elige servicio.
-2. Selecciona fecha y hora de lunes a sabado.
-3. Envia solicitud.
-4. La reserva queda en estado `pendiente`.
-5. Aurocar revisa y confirma desde `/admin`.
-6. Solo despues se comparte el link de Mercado Pago.
+1. Cliente elige servicio en el primer paso.
+2. Selecciona fecha y hora disponible segun la duracion del servicio.
+3. Completa sus datos y revisa el resumen.
+4. Envia la solicitud.
+5. La reserva queda en estado `pendiente`.
+6. Aurocar revisa y confirma desde `/admin`.
+7. Solo despues se comparte el link de Mercado Pago.
 
 ## Admin
 
@@ -58,7 +60,7 @@ Ruta: `/admin/login`
 
 Clave demo por defecto: `aurocar-demo`
 
-Desde `/admin` se puede filtrar, confirmar, rechazar, marcar pagado y copiar mensaje de WhatsApp.
+Desde `/admin` se puede filtrar por fecha, estado y servicio; confirmar o rechazar citas; marcar pagos; guardar notas internas y contactar por WhatsApp. La sesion se protege con una cookie HTTP-only.
 
 ## Deploy en Vercel
 

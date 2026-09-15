@@ -11,9 +11,9 @@ export function Footer() {
         <div>
           <p className="mb-3 font-black uppercase">Navegacion</p>
           <div className="grid gap-2 text-sm text-slate-400">
-            <a href="#servicios">Servicios</a>
-            <a href="#agendar">Agendar</a>
-            <a href="#contacto">Contacto</a>
+            <a href="/#servicios">Servicios</a>
+            <a href="/agendar#agendar">Agendar</a>
+            <a href="/#contacto">Contacto</a>
             <a href="/admin/login">Admin</a>
           </div>
         </div>

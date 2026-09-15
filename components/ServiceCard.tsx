@@ -25,7 +25,7 @@ export function ServiceCard({ service }: { service: AurocarService }) {
             </li>
           ))}
         </ul>
-        <a href={`#agendar?servicio=${service.id}`} className="rounded-lg bg-white px-4 py-3 text-center text-xs font-black uppercase text-ink transition hover:bg-sky-100">
+        <a href={`/agendar?servicio=${service.id}#agendar`} className="rounded-lg bg-white px-4 py-3 text-center text-xs font-black uppercase text-ink transition hover:bg-sky-100">
           Agendar este servicio
         </a>
       </div>

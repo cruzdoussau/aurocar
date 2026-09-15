@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { bookingSchema, bookingUpdateSchema } from "@/lib/validations";
-import { generateBookingCode } from "@/lib/booking-utils";
+import { generateBookingCode, slotConflicts, slotFitsSchedule } from "@/lib/booking-utils";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { readLocalBookings, writeLocalBookings } from "@/lib/local-bookings";
 import { services } from "@/lib/constants";
+import { isAdminRequest } from "@/lib/admin-auth";
 import type { Booking } from "@/types/booking";
 
 export async function GET(request: Request) {
@@ -12,7 +13,16 @@ export async function GET(request: Request) {
   const service = searchParams.get("service");
   const date = searchParams.get("date");
   const query = searchParams.get("query")?.toLowerCase();
+  const adminMode = searchParams.get("admin") === "1";
   const supabase = getSupabaseAdmin();
+
+  if (adminMode && !isAdminRequest(request)) {
+    return NextResponse.json({ error: "Sesión de administrador requerida." }, { status: 401 });
+  }
+
+  if (!adminMode && (!date || status || service || query)) {
+    return NextResponse.json({ error: "Solicitud no autorizada." }, { status: 401 });
+  }
 
   if (supabase) {
     let builder = supabase.from("bookings").select("*").order("created_at", { ascending: false });
@@ -22,7 +32,8 @@ export async function GET(request: Request) {
     const { data, error } = await builder;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     const rows = (data || []) as Booking[];
-    return NextResponse.json({ bookings: filterQuery(rows, query) });
+    const filteredRows = filterQuery(rows, query);
+    return NextResponse.json({ bookings: adminMode ? filteredRows : filteredRows.map(toAvailabilityRecord) });
   }
 
   const bookings = await readLocalBookings();
@@ -31,7 +42,8 @@ export async function GET(request: Request) {
     .filter((item) => !service || item.service_id === service)
     .filter((item) => !date || item.booking_date === date);
 
-  return NextResponse.json({ bookings: filterQuery(filtered, query).reverse() });
+  const rows = filterQuery(filtered, query).reverse();
+  return NextResponse.json({ bookings: adminMode ? rows : rows.map(toAvailabilityRecord) });
 }
 
 export async function POST(request: Request) {
@@ -47,22 +59,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Servicio no encontrado" }, { status: 400 });
   }
 
+  if (!slotFitsSchedule(parsed.data.booking_time, service.durationMinutes)) {
+    return NextResponse.json({ error: "Ese horario no permite completar el servicio antes del cierre." }, { status: 400 });
+  }
+
   const now = new Date().toISOString();
   const supabase = getSupabaseAdmin();
   const blocksSlot = (booking: Booking) =>
     booking.booking_date === parsed.data.booking_date &&
-    booking.booking_time === parsed.data.booking_time &&
-    ["pendiente", "confirmada"].includes(booking.status);
+    ["pendiente", "confirmada"].includes(booking.status) &&
+    slotConflicts(parsed.data.booking_time, parsed.data.service_id, booking.booking_time, booking.service_id);
 
   if (supabase) {
     const { data: existing, error: existingError } = await supabase
       .from("bookings")
       .select("*")
       .eq("booking_date", parsed.data.booking_date)
-      .eq("booking_time", parsed.data.booking_time)
       .in("status", ["pendiente", "confirmada"]);
     if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
-    if ((existing || []).length > 0) {
+    if (((existing || []) as Booking[]).some(blocksSlot)) {
       return NextResponse.json({ error: "Ese horario acaba de ser reservado. Elige otro bloque disponible." }, { status: 409 });
     }
     const { count } = await supabase.from("bookings").select("id", { count: "exact", head: true });
@@ -84,6 +99,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Sesión de administrador requerida." }, { status: 401 });
+  }
   const body = await request.json();
   const parsed = bookingUpdateSchema.safeParse(body);
 
@@ -139,4 +157,14 @@ function filterQuery(bookings: Booking[], query?: string) {
   return bookings.filter((item) =>
     [item.customer_name, item.phone, item.license_plate].some((value) => value.toLowerCase().includes(query))
   );
+}
+
+function toAvailabilityRecord(booking: Booking) {
+  return {
+    id: booking.id,
+    booking_date: booking.booking_date,
+    booking_time: booking.booking_time,
+    service_id: booking.service_id,
+    status: booking.status
+  };
 }

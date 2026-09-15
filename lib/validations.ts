@@ -9,10 +9,14 @@ export const bookingSchema = z.object({
   vehicle_type: z.enum(company.vehicleTypes as [string, ...string[]], {
     errorMap: () => ({ message: "Selecciona el tipo de vehiculo." })
   }),
+  vehicle_brand: z.string().max(50, "La marca es demasiado larga.").optional().default(""),
+  vehicle_model: z.string().max(50, "El modelo es demasiado largo.").optional().default(""),
+  license_plate: z.string().max(10, "Revisa la patente ingresada.").optional().default(""),
+  notes: z.string().max(300, "Las indicaciones no pueden superar 300 caracteres.").optional().default(""),
   service_id: z.string().refine((value) => services.some((service) => service.id === value), "Selecciona un servicio.").default(services[0].id),
   booking_date: z.string().refine(isBookableDate, "Elige una fecha de lunes a sabado y no pasada."),
   booking_time: z.string().refine(isBookableTime, "Selecciona un horario de atencion valido."),
-  accepted_policies: z.boolean().default(true)
+  accepted_policies: z.boolean().refine((value) => value, "Debes aceptar las condiciones.")
 });
 
 export const contactSchema = z.object({

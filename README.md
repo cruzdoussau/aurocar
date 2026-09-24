@@ -50,7 +50,7 @@ Si Supabase no esta configurado, la app guarda reservas en `.data/bookings.json`
 2. Selecciona fecha y hora disponible segun la duracion del servicio.
 3. Completa sus datos y revisa el resumen.
 4. Envia la solicitud.
-5. La reserva queda en estado `pendiente`.
+5. La reserva queda en estado `pendiente` y bloquea el horario durante 30 minutos.
 6. Aurocar revisa y confirma desde `/admin`.
 7. Solo despues se comparte el link de Mercado Pago.
 

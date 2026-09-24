@@ -18,7 +18,7 @@ import {
   UserRound,
   XCircle
 } from "lucide-react";
-import { buildWhatsAppMessage, formatHumanDate } from "@/lib/booking-utils";
+import { bookingBlocksSlot, buildWhatsAppMessage, formatHumanDate } from "@/lib/booking-utils";
 import { bookingStatuses, company, services } from "@/lib/constants";
 import type { Booking, BookingStatus, PaymentStatus } from "@/types/booking";
 
@@ -60,7 +60,7 @@ export function AdminBookingTable() {
   }, [bookings, status, service, query, date]);
 
   const stats = useMemo(() => ({
-    pending: bookings.filter((booking) => booking.status === "pendiente").length,
+    pending: bookings.filter((booking) => booking.status === "pendiente" && bookingBlocksSlot(booking)).length,
     today: bookings.filter((booking) => booking.booking_date === today && ["pendiente", "confirmada"].includes(booking.status)).length,
     confirmed: bookings.filter((booking) => booking.status === "confirmada").length,
     completed: bookings.filter((booking) => booking.status === "completada").length
@@ -94,7 +94,8 @@ export function AdminBookingTable() {
         router.replace("/admin/login");
         return;
       }
-      if (!response.ok) throw new Error("No se pudo actualizar la cita.");
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "No se pudo actualizar la cita.");
       setNotice("Cita actualizada correctamente.");
       await load(true);
     } catch (error) {
@@ -169,12 +170,13 @@ export function AdminBookingTable() {
 function BookingCard({ booking, busy, onUpdate, onCopy }: { booking: Booking; busy: boolean; onUpdate: (id: string, patch: Partial<Pick<Booking, "status" | "payment_status" | "booking_date" | "booking_time" | "internal_notes">>) => Promise<void>; onCopy: (text: string, message: string) => Promise<void> }) {
   const service = services.find((item) => item.id === booking.service_id);
   const phone = booking.phone.replace(/\D/g, "");
+  const expiredPending = booking.status === "pendiente" && !bookingBlocksSlot(booking);
   return (
     <article className={`premium-card overflow-hidden rounded-2xl transition ${busy ? "opacity-60" : ""}`}>
       <div className="grid xl:grid-cols-[1.05fr_.95fr_.7fr]">
         <div className="p-5 sm:p-6">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase ${statusStyles[booking.status]}`}>{statusLabels[booking.status]}</span>
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase ${expiredPending ? statusStyles.cancelada : statusStyles[booking.status]}`}>{expiredPending ? "Pendiente vencida" : statusLabels[booking.status]}</span>
             <span className="text-xs font-black uppercase tracking-wide text-slate-500">{booking.booking_code}</span>
           </div>
           <div className="mt-5 flex items-start gap-3">

@@ -34,6 +34,14 @@ export function slotConflicts(candidateTime: string, candidateServiceId: string,
   return candidateStart < existingEnd && existingStart < candidateEnd;
 }
 
+export function bookingBlocksSlot(booking: Pick<Booking, "status" | "created_at">, now = Date.now()) {
+  if (booking.status === "confirmada") return true;
+  if (booking.status !== "pendiente") return false;
+  const createdAt = Date.parse(booking.created_at);
+  if (Number.isNaN(createdAt)) return true;
+  return createdAt + company.pendingHoldMinutes * 60_000 > now;
+}
+
 export function generateBookingCode(sequence: number) {
   return `AUR-${new Date().getFullYear()}-${String(sequence).padStart(4, "0")}`;
 }

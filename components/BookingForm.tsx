@@ -74,6 +74,7 @@ export function BookingForm() {
   const [message, setMessage] = useState("");
   const [bookingCode, setBookingCode] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedService = services.find((service) => service.id === selectedServiceId) || services[0];
@@ -86,10 +87,18 @@ export function BookingForm() {
     }
 
     setLoadingSlots(true);
+    setAvailabilityError("");
     try {
       const response = await fetch(`/api/bookings?date=${selectedDate}`, { cache: "no-store" });
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || "No pudimos consultar los horarios disponibles.");
+      }
       setBookings(result.bookings || []);
+    } catch (error) {
+      setBookings([]);
+      setSelectedTime("");
+      setAvailabilityError(error instanceof Error ? error.message : "No pudimos consultar los horarios disponibles.");
     } finally {
       setLoadingSlots(false);
     }
@@ -131,6 +140,10 @@ export function BookingForm() {
       return;
     }
     if (step === 2) {
+      if (availabilityError) {
+        setErrors((current) => ({ ...current, booking_time: "Primero vuelve a cargar la disponibilidad." }));
+        return;
+      }
       if (!validDate || !selectedTime) {
         setErrors((current) => ({ ...current, booking_time: "Selecciona una fecha y un horario disponible." }));
         return;
@@ -176,10 +189,10 @@ export function BookingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data)
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setMessage(result.error || "No pudimos tomar ese horario. Intenta con otro bloque.");
+        setMessage(result?.error || "No pudimos tomar ese horario. Intenta con otro bloque.");
         await loadSlots();
         return;
       }
@@ -311,13 +324,19 @@ export function BookingForm() {
                         const blocked = doesNotFit || bookings.some((booking) => booking.booking_date === selectedDate && blockedStatuses.includes(booking.status) && slotConflicts(time, selectedService.id, booking.booking_time, booking.service_id));
                         const selected = selectedTime === time;
                         return (
-                          <button key={time} type="button" disabled={!validDate || blocked || isSubmitting} onClick={() => { setSelectedTime(time); setErrors((current) => ({ ...current, booking_time: "" })); }} className={`min-h-16 rounded-xl border px-3 text-left transition ${selected ? "border-green-300 bg-green-400 text-ink shadow-glow" : "border-white/10 bg-ink/70 text-white hover:border-electric/70 hover:bg-electric/10"} ${blocked ? "cursor-not-allowed border-white/5 bg-white/[.02] text-slate-600 line-through hover:border-white/5 hover:bg-white/[.02]" : ""} ${!validDate ? "cursor-not-allowed opacity-40" : ""}`}>
+                          <button key={time} type="button" disabled={!validDate || blocked || isSubmitting || loadingSlots || Boolean(availabilityError)} onClick={() => { setSelectedTime(time); setErrors((current) => ({ ...current, booking_time: "" })); }} className={`min-h-16 rounded-xl border px-3 text-left transition ${selected ? "border-green-300 bg-green-400 text-ink shadow-glow" : "border-white/10 bg-ink/70 text-white hover:border-electric/70 hover:bg-electric/10"} ${blocked ? "cursor-not-allowed border-white/5 bg-white/[.02] text-slate-600 line-through hover:border-white/5 hover:bg-white/[.02]" : ""} ${!validDate || availabilityError ? "cursor-not-allowed opacity-40" : ""}`}>
                             <span className="block text-lg font-black">{time}</span>
                             <span className="text-[10px] font-black uppercase">{blocked ? "No disponible" : selected ? "Seleccionado" : "Disponible"}</span>
                           </button>
                         );
                       })}
                     </div>
+                    {availabilityError ? (
+                      <div className="mt-4 rounded-xl border border-action/30 bg-action/10 p-4 text-sm text-red-100">
+                        <p className="font-bold">{availabilityError}</p>
+                        <button type="button" onClick={loadSlots} className="mt-3 rounded-lg border border-red-200/20 px-3 py-2 text-xs font-black uppercase hover:bg-white/5">Volver a intentar</button>
+                      </div>
+                    ) : null}
                     {errors.booking_time ? <p className="mt-3 text-sm font-bold text-red-300">{errors.booking_time}</p> : null}
                   </div>
                 </div>
@@ -367,7 +386,7 @@ export function BookingForm() {
                   <div className="rounded-2xl border border-electric/20 bg-electric/[.07] p-5 sm:p-6">
                     <ShieldCheck className="text-electric" size={30} />
                     <h4 className="mt-4 text-xl font-black">Solicitud sujeta a confirmación</h4>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">El horario quedará reservado temporalmente. El equipo de Aurocar revisará la solicitud y te contactará para confirmarla.</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">El horario quedará reservado durante {company.pendingHoldMinutes} minutos. El equipo de Aurocar revisará la solicitud y te contactará para confirmarla.</p>
                     <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-ink/40 p-4 text-sm leading-5 text-slate-300"><input type="checkbox" checked={data.accepted_policies} onChange={(event) => updateField("accepted_policies", event.target.checked)} className="mt-1 h-4 w-4 accent-sky-500" /><span>Acepto que Aurocar me contacte para confirmar esta solicitud y coordinar el servicio.</span></label>
                     {errors.accepted_policies ? <p className="mt-2 text-xs font-bold text-red-300">{errors.accepted_policies}</p> : null}
                     <button type="button" onClick={reserve} disabled={isSubmitting} className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-action px-6 text-sm font-black uppercase text-white shadow-red transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}Enviar solicitud</button>

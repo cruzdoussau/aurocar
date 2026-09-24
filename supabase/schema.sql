@@ -30,8 +30,6 @@ create index if not exists bookings_search_idx on public.bookings (customer_name
 
 alter table public.bookings enable row level security;
 
-create policy "service role can manage bookings"
-on public.bookings
-for all
-using (true)
-with check (true);
+-- No se crean politicas publicas: la API del servidor usa una clave secreta,
+-- que omite RLS. Esto evita exponer los datos personales de las reservas.
+drop policy if exists "service role can manage bookings" on public.bookings;

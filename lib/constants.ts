@@ -11,6 +11,7 @@ export const company = {
   paymentLink: "https://link.mercadopago.cl/aurocar",
   scheduleLabel: "Lunes a sabado de 09:00 a 18:00 horas. Domingo cerrado.",
   closingTime: "18:00",
+  pendingHoldMinutes: 30,
   availableDays: [1, 2, 3, 4, 5, 6],
   timeSlots: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"],
   vehicleTypes: ["City car", "Sedan", "SUV", "Camioneta XL", "Furgon"]

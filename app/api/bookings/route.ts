@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server";
 import { bookingSchema, bookingUpdateSchema } from "@/lib/validations";
-import { generateBookingCode, slotConflicts, slotFitsSchedule } from "@/lib/booking-utils";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { bookingBlocksSlot, generateBookingCode, slotConflicts, slotFitsSchedule } from "@/lib/booking-utils";
+import { getSupabaseAdmin, isProductionStorageRequired } from "@/lib/supabase";
 import { readLocalBookings, writeLocalBookings } from "@/lib/local-bookings";
-import { services } from "@/lib/constants";
+import { company, services } from "@/lib/constants";
 import { isAdminRequest } from "@/lib/admin-auth";
 import type { Booking } from "@/types/booking";
 
 export async function GET(request: Request) {
+  return withApiErrors(() => handleGet(request));
+}
+
+export async function POST(request: Request) {
+  return withApiErrors(() => handlePost(request));
+}
+
+export async function PATCH(request: Request) {
+  return withApiErrors(() => handlePatch(request));
+}
+
+async function handleGet(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const service = searchParams.get("service");
@@ -33,8 +45,11 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     const rows = (data || []) as Booking[];
     const filteredRows = filterQuery(rows, query);
-    return NextResponse.json({ bookings: adminMode ? filteredRows : filteredRows.map(toAvailabilityRecord) });
+    const visibleRows = adminMode ? filteredRows : filteredRows.filter((booking) => bookingBlocksSlot(booking));
+    return NextResponse.json({ bookings: adminMode ? visibleRows : visibleRows.map(toAvailabilityRecord) });
   }
+
+  if (isProductionStorageRequired()) return storageUnavailable();
 
   const bookings = await readLocalBookings();
   const filtered = bookings
@@ -43,10 +58,11 @@ export async function GET(request: Request) {
     .filter((item) => !date || item.booking_date === date);
 
   const rows = filterQuery(filtered, query).reverse();
-  return NextResponse.json({ bookings: adminMode ? rows : rows.map(toAvailabilityRecord) });
+  const visibleRows = adminMode ? rows : rows.filter((booking) => bookingBlocksSlot(booking));
+  return NextResponse.json({ bookings: adminMode ? visibleRows : visibleRows.map(toAvailabilityRecord) });
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const body = await request.json();
   const parsed = bookingSchema.safeParse(body);
 
@@ -67,7 +83,7 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
   const blocksSlot = (booking: Booking) =>
     booking.booking_date === parsed.data.booking_date &&
-    ["pendiente", "confirmada"].includes(booking.status) &&
+    bookingBlocksSlot(booking) &&
     slotConflicts(parsed.data.booking_time, parsed.data.service_id, booking.booking_time, booking.service_id);
 
   if (supabase) {
@@ -84,8 +100,10 @@ export async function POST(request: Request) {
     const booking = createBooking(parsed.data, service.name, generateBookingCode((count || 0) + 1), now);
     const { data, error } = await supabase.from("bookings").insert(booking).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ booking: data, message: "Tu solicitud fue enviada correctamente. Aurocar revisara la disponibilidad y se comunicara contigo para confirmar la cita." });
+    return NextResponse.json({ booking: data, message: `Tu solicitud fue enviada correctamente. El horario se mantendrá reservado por ${company.pendingHoldMinutes} minutos mientras Aurocar revisa la cita.` });
   }
+
+  if (isProductionStorageRequired()) return storageUnavailable();
 
   const bookings = await readLocalBookings();
   if (bookings.some(blocksSlot)) {
@@ -95,10 +113,10 @@ export async function POST(request: Request) {
   bookings.push(booking);
   await writeLocalBookings(bookings);
 
-  return NextResponse.json({ booking, message: "Tu solicitud fue enviada correctamente. Aurocar revisara la disponibilidad y se comunicara contigo para confirmar la cita." });
+  return NextResponse.json({ booking, message: `Tu solicitud fue enviada correctamente. El horario se mantendrá reservado por ${company.pendingHoldMinutes} minutos mientras Aurocar revisa la cita.` });
 }
 
-export async function PATCH(request: Request) {
+async function handlePatch(request: Request) {
   if (!isAdminRequest(request)) {
     return NextResponse.json({ error: "Sesión de administrador requerida." }, { status: 401 });
   }
@@ -112,17 +130,38 @@ export async function PATCH(request: Request) {
   const supabase = getSupabaseAdmin();
   const patch = { ...parsed.data, updated_at: new Date().toISOString() };
   delete (patch as Partial<typeof patch>).id;
+  const scheduleChanged = Boolean(parsed.data.status || parsed.data.booking_date || parsed.data.booking_time);
 
   if (supabase) {
+    const { data: current, error: currentError } = await supabase.from("bookings").select("*").eq("id", parsed.data.id).single();
+    if (currentError || !current) return NextResponse.json({ error: currentError?.message || "Reserva no encontrada" }, { status: 404 });
+    const nextBooking = { ...(current as Booking), ...patch } as Booking;
+    if (scheduleChanged && bookingBlocksSlot(nextBooking)) {
+      const { data: sameDay, error: conflictError } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("booking_date", nextBooking.booking_date)
+        .in("status", ["pendiente", "confirmada"]);
+      if (conflictError) return NextResponse.json({ error: conflictError.message }, { status: 500 });
+      if (((sameDay || []) as Booking[]).some((item) => item.id !== nextBooking.id && bookingBlocksSlot(item) && slotConflicts(nextBooking.booking_time, nextBooking.service_id, item.booking_time, item.service_id))) {
+        return NextResponse.json({ error: "No se puede confirmar: el horario se cruza con otra cita activa." }, { status: 409 });
+      }
+    }
     const { data, error } = await supabase.from("bookings").update(patch).eq("id", parsed.data.id).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ booking: data });
   }
 
+  if (isProductionStorageRequired()) return storageUnavailable();
+
   const bookings = await readLocalBookings();
   const index = bookings.findIndex((booking) => booking.id === parsed.data.id);
   if (index === -1) return NextResponse.json({ error: "Reserva no encontrada" }, { status: 404 });
-  bookings[index] = { ...bookings[index], ...patch };
+  const nextBooking = { ...bookings[index], ...patch };
+  if (scheduleChanged && bookingBlocksSlot(nextBooking) && bookings.some((item) => item.id !== nextBooking.id && item.booking_date === nextBooking.booking_date && bookingBlocksSlot(item) && slotConflicts(nextBooking.booking_time, nextBooking.service_id, item.booking_time, item.service_id))) {
+    return NextResponse.json({ error: "No se puede confirmar: el horario se cruza con otra cita activa." }, { status: 409 });
+  }
+  bookings[index] = nextBooking;
   await writeLocalBookings(bookings);
   return NextResponse.json({ booking: bookings[index] });
 }
@@ -167,4 +206,29 @@ function toAvailabilityRecord(booking: Booking) {
     service_id: booking.service_id,
     status: booking.status
   };
+}
+
+function storageUnavailable() {
+  return NextResponse.json(
+    {
+      error: "La agenda no tiene una base de datos configurada en este entorno.",
+      code: "BOOKING_STORAGE_NOT_CONFIGURED"
+    },
+    { status: 503 }
+  );
+}
+
+async function withApiErrors(action: () => Promise<NextResponse>) {
+  try {
+    return await action();
+  } catch (error) {
+    console.error("Booking API error", error);
+    return NextResponse.json(
+      {
+        error: "No pudimos conectar con la agenda. Revisa la configuración de Supabase en Vercel.",
+        code: "BOOKING_API_ERROR"
+      },
+      { status: 500 }
+    );
+  }
 }

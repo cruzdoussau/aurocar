@@ -13,6 +13,7 @@ export type Booking = {
   vehicle_type: string;
   service_id: string;
   service_name: string;
+  price: number | null;
   booking_date: string;
   booking_time: string;
   notes?: string | null;

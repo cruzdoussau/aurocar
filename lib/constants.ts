@@ -1,4 +1,4 @@
-import type { AurocarService } from "@/types/service";
+import type { AurocarService, VehicleType } from "@/types/service";
 
 export const company = {
   name: "Aurocar",
@@ -14,7 +14,7 @@ export const company = {
   pendingHoldMinutes: 30,
   availableDays: [1, 2, 3, 4, 5, 6],
   timeSlots: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"],
-  vehicleTypes: ["City car", "Sedan", "SUV", "Camioneta XL", "Furgon"]
+  vehicleTypes: ["City car", "Sedan", "SUV", "Camioneta XL", "Furgon"] as const satisfies readonly VehicleType[]
 };
 
 export const serviceImages = {
@@ -37,7 +37,14 @@ export const services: AurocarService[] = [
     description: "Limpieza exterior basica para mantener tu vehiculo limpio y presentable.",
     image: serviceImages.simple,
     durationMinutes: 60,
-    priceLabel: "Precio editable",
+    priceLabel: "Desde $10.000",
+    prices: {
+      "City car": 10000,
+      Sedan: 12000,
+      SUV: 15000,
+      "Camioneta XL": 20000,
+      Furgon: 25000
+    },
     includes: [
       "Lavado exterior con hidrolavadora",
       "Limpieza de llantas y neumaticos",
@@ -54,7 +61,14 @@ export const services: AurocarService[] = [
     description: "Una limpieza mas detallada del interior y exterior de tu vehiculo.",
     image: serviceImages.intermedio,
     durationMinutes: 90,
-    priceLabel: "Precio editable",
+    priceLabel: "Desde $15.000",
+    prices: {
+      "City car": 15000,
+      Sedan: 15000,
+      SUV: 20000,
+      "Camioneta XL": 25000,
+      Furgon: 30000
+    },
     includes: [
       "Todo lo del lavado simple",
       "Limpieza detallada de paneles y consola",
@@ -71,7 +85,7 @@ export const services: AurocarService[] = [
     description: "Recuperamos la limpieza, frescura y apariencia interior de tu vehiculo.",
     image: serviceImages.tapiceria,
     durationMinutes: 150,
-    priceLabel: "Precio editable",
+    priceLabel: "Valor segun evaluacion",
     includes: [
       "Aspirado profundo",
       "Aplicacion de productos especiales",
@@ -89,7 +103,14 @@ export const services: AurocarService[] = [
     description: "Limpieza completa con productos premium, desinfeccion y proteccion.",
     image: serviceImages.premium,
     durationMinutes: 180,
-    priceLabel: "Desde $35.000 segun vehiculo",
+    priceLabel: "Desde $35.000",
+    prices: {
+      "City car": 35000,
+      Sedan: 45000,
+      SUV: 50000,
+      "Camioneta XL": 60000,
+      Furgon: 70000
+    },
     includes: [
       "Todo lo del lavado intermedio",
       "Productos premium para interior y exterior",
@@ -107,7 +128,14 @@ export const services: AurocarService[] = [
     description: "La experiencia de cuidado mas completa para clientes exigentes.",
     image: serviceImages.vip,
     durationMinutes: 150,
-    priceLabel: "Precio editable",
+    priceLabel: "Desde $20.000",
+    prices: {
+      "City car": 20000,
+      Sedan: 20000,
+      SUV: 25000,
+      "Camioneta XL": 30000,
+      Furgon: 35000
+    },
     includes: [
       "Todo lo del lavado intermedio",
       "Productos premium",
@@ -125,7 +153,7 @@ export const services: AurocarService[] = [
     description: "Recupera la iluminacion, seguridad y apariencia de tus focos.",
     image: serviceImages.focos,
     durationMinutes: 75,
-    priceLabel: "Precio editable",
+    priceLabel: "Valor segun evaluacion",
     includes: [
       "Mejora la iluminacion nocturna",
       "Aumenta la seguridad",
@@ -137,3 +165,12 @@ export const services: AurocarService[] = [
 ];
 
 export const bookingStatuses = ["pendiente", "confirmada", "rechazada", "completada", "cancelada"] as const;
+
+export function getServicePrice(serviceId: string, vehicleType: string) {
+  const service = services.find((item) => item.id === serviceId);
+  return service?.prices?.[vehicleType as VehicleType] ?? null;
+}
+
+export function formatPrice(price: number | null | undefined) {
+  return typeof price === "number" ? `$${price.toLocaleString("es-CL")}` : "Valor segun evaluacion";
+}

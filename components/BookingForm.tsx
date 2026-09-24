@@ -19,7 +19,7 @@ import {
   UserRound
 } from "lucide-react";
 import { bookingSchema } from "@/lib/validations";
-import { company, services } from "@/lib/constants";
+import { company, formatPrice, getServicePrice, services } from "@/lib/constants";
 import { formatHumanDate, isBookableDate, slotConflicts, slotFitsSchedule } from "@/lib/booking-utils";
 import type { Booking } from "@/types/booking";
 
@@ -78,6 +78,7 @@ export function BookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedService = services.find((service) => service.id === selectedServiceId) || services[0];
+  const selectedPrice = getServicePrice(selectedService.id, data.vehicle_type);
   const validDate = isBookableDate(selectedDate);
 
   async function loadSlots() {
@@ -268,27 +269,34 @@ export function BookingForm() {
 
             <div className="p-5 sm:p-8">
               {step === 1 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {services.map((service) => {
-                    const selected = selectedServiceId === service.id;
-                    return (
-                      <button key={service.id} type="button" onClick={() => setSelectedServiceId(service.id)} className={`group overflow-hidden rounded-2xl border text-left transition ${selected ? "border-electric bg-electric/10 shadow-glow" : "border-white/10 bg-white/[.03] hover:border-white/25"}`}>
-                        <div className="relative aspect-[16/8] overflow-hidden">
-                          <Image src={service.image} alt="" fill className="object-cover transition duration-500 group-hover:scale-105" sizes="(min-width: 1024px) 30vw, 100vw" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-ink to-transparent" />
-                          <span className={`absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border ${selected ? "border-electric bg-electric text-ink" : "border-white/30 bg-ink/70"}`}>{selected ? <Check size={16} /> : null}</span>
-                        </div>
-                        <div className="p-4">
-                          <h4 className="text-lg font-black text-white">{service.name}</h4>
-                          <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-400">{service.description}</p>
-                          <div className="mt-4 flex items-center justify-between gap-3 text-xs font-bold uppercase">
-                            <span className="inline-flex items-center gap-1.5 text-sky-200"><Clock3 size={14} /> {service.durationMinutes} min</span>
-                            <span className="text-slate-400">{service.priceLabel}</span>
+                <div>
+                  <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-electric/20 bg-electric/[.07] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div><p className="text-sm font-black text-white">Selecciona el tipo de vehículo</p><p className="mt-1 text-xs text-sky-100/70">Los precios se actualizan automáticamente según tu vehículo.</p></div>
+                    <select aria-label="Tipo de vehículo para calcular precios" className={`${inputClass} sm:max-w-56`} value={data.vehicle_type} onChange={(event) => updateField("vehicle_type", event.target.value)}>{company.vehicleTypes.map((type) => <option key={type}>{type}</option>)}</select>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {services.map((service) => {
+                      const selected = selectedServiceId === service.id;
+                      const servicePrice = getServicePrice(service.id, data.vehicle_type);
+                      return (
+                        <button key={service.id} type="button" onClick={() => setSelectedServiceId(service.id)} className={`group overflow-hidden rounded-2xl border text-left transition ${selected ? "border-electric bg-electric/10 shadow-glow" : "border-white/10 bg-white/[.03] hover:border-white/25"}`}>
+                          <div className="relative aspect-[16/8] overflow-hidden">
+                            <Image src={service.image} alt="" fill className="object-cover transition duration-500 group-hover:scale-105" sizes="(min-width: 1024px) 30vw, 100vw" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-ink to-transparent" />
+                            <span className={`absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border ${selected ? "border-electric bg-electric text-ink" : "border-white/30 bg-ink/70"}`}>{selected ? <Check size={16} /> : null}</span>
                           </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                          <div className="p-4">
+                            <h4 className="text-lg font-black text-white">{service.name}</h4>
+                            <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-400">{service.description}</p>
+                            <div className="mt-4 flex items-center justify-between gap-3 text-xs font-bold uppercase">
+                              <span className="inline-flex items-center gap-1.5 text-sky-200"><Clock3 size={14} /> {service.durationMinutes} min</span>
+                              <span className={servicePrice ? "text-green-300" : "text-slate-400"}>{formatPrice(servicePrice)}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : null}
 
@@ -306,7 +314,7 @@ export function BookingForm() {
                     {!validDate ? <p className="mt-3 rounded-xl border border-action/40 bg-action/10 p-3 text-sm font-bold text-red-100">Elige una fecha de lunes a sábado.</p> : null}
                     <div className="mt-5 rounded-xl border border-electric/20 bg-electric/10 p-4 text-sm text-sky-100">
                       <p className="font-black">{selectedService.name}</p>
-                      <p className="mt-1 text-sky-200/70">Duración estimada: {selectedService.durationMinutes} minutos</p>
+                      <p className="mt-1 text-sky-200/70">Duración estimada: {selectedService.durationMinutes} minutos · {formatPrice(selectedPrice)}</p>
                     </div>
                   </div>
 
@@ -355,6 +363,7 @@ export function BookingForm() {
                   <div>
                     <SectionTitle icon={<CarFront size={18} />} title="Datos del vehículo" subtitle="Así podremos preparar mejor el servicio" />
                     <label className="mb-4 grid gap-2 text-xs font-black uppercase tracking-wide text-slate-400">Tipo de vehículo<select className={inputClass} value={data.vehicle_type} onChange={(event) => updateField("vehicle_type", event.target.value)}>{company.vehicleTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                    <p className="mb-4 rounded-xl border border-green-300/20 bg-green-300/10 px-4 py-3 text-sm font-black text-green-200">Precio del servicio: {formatPrice(selectedPrice)}</p>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="Marca (opcional)" error={errors.vehicle_brand}><input className={inputClass} value={data.vehicle_brand} onChange={(event) => updateField("vehicle_brand", event.target.value)} placeholder="Ej: Toyota" /></Field>
                       <Field label="Modelo (opcional)" error={errors.vehicle_model}><input className={inputClass} value={data.vehicle_model} onChange={(event) => updateField("vehicle_model", event.target.value)} placeholder="Ej: Corolla" /></Field>
@@ -372,7 +381,7 @@ export function BookingForm() {
                   <div className="rounded-2xl border border-white/10 bg-white/[.03] p-5 sm:p-6">
                     <div className="flex items-start gap-4 border-b border-white/10 pb-5">
                       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl"><Image src={selectedService.image} alt="" fill className="object-cover" sizes="96px" /></div>
-                      <div><p className="text-xs font-black uppercase tracking-wide text-electric">Servicio seleccionado</p><h4 className="mt-1 text-xl font-black">{selectedService.name}</h4><p className="mt-1 text-sm text-slate-400">{selectedService.durationMinutes} minutos · {selectedService.priceLabel}</p></div>
+                      <div><p className="text-xs font-black uppercase tracking-wide text-electric">Servicio seleccionado</p><h4 className="mt-1 text-xl font-black">{selectedService.name}</h4><p className="mt-1 text-sm text-slate-400">{selectedService.durationMinutes} minutos · {formatPrice(selectedPrice)}</p></div>
                     </div>
                     <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
                       <SummaryItem label="Fecha" value={formatHumanDate(selectedDate)} />

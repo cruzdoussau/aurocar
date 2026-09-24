@@ -33,6 +33,9 @@ ADMIN_PASSWORD=aurocar-demo
 ADMIN_SESSION_SECRET=una-clave-larga-y-privada
 NEXT_PUBLIC_WHATSAPP_NUMBER=
 NEXT_PUBLIC_AUROCAR_ADDRESS=
+RESEND_API_KEY=
+BOOKING_FROM_EMAIL=Aurocar <reservas@aurocarwash.cl>
+BOOKING_NOTIFICATION_EMAIL=
 ```
 
 Si Supabase no esta configurado, la app guarda reservas en `.data/bookings.json` para desarrollo local.
@@ -43,6 +46,20 @@ Si Supabase no esta configurado, la app guarda reservas en `.data/bookings.json`
 2. Ejecuta `supabase/schema.sql` en el SQL Editor.
 3. Copia las variables del proyecto en `.env.local`.
 4. Usa `SUPABASE_SERVICE_ROLE_KEY` solo en servidor y Vercel, nunca en frontend publico.
+
+El esquema guarda el precio calculado al momento de la solicitud. Si la tabla ya existia, vuelve a ejecutar `supabase/schema.sql` para agregar la columna `price`.
+
+## Correos de reservas
+
+La API envia dos correos al crear una solicitud: uno al cliente con su codigo de reserva y otro a Aurocar con los datos para revisarla.
+
+1. Verifica `aurocarwash.cl` en Resend.
+2. Crea una API key y guardala como `RESEND_API_KEY` en Vercel.
+3. Configura `BOOKING_FROM_EMAIL` con un remitente del dominio verificado.
+4. Configura `BOOKING_NOTIFICATION_EMAIL` con la casilla que recibira las nuevas solicitudes.
+5. Vuelve a desplegar el proyecto para aplicar las variables.
+
+Si el proveedor de correo falla, la reserva se conserva y el error queda registrado en los logs de Vercel para evitar reservas duplicadas.
 
 ## Flujo de reserva
 

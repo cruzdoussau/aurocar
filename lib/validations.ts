@@ -6,7 +6,7 @@ export const bookingSchema = z.object({
   customer_name: z.string().min(3, "Ingresa tu nombre completo."),
   phone: z.string().min(8, "Ingresa un telefono valido."),
   email: z.string().email("Ingresa un correo valido."),
-  vehicle_type: z.enum(company.vehicleTypes as [string, ...string[]], {
+  vehicle_type: z.enum(company.vehicleTypes, {
     errorMap: () => ({ message: "Selecciona el tipo de vehiculo." })
   }),
   vehicle_brand: z.string().max(50, "La marca es demasiado larga.").optional().default(""),

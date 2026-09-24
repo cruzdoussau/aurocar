@@ -12,6 +12,7 @@ create table if not exists public.bookings (
   vehicle_type text not null,
   service_id text not null,
   service_name text not null,
+  price integer check (price is null or price >= 0),
   booking_date date not null,
   booking_time text not null,
   notes text,
@@ -22,6 +23,8 @@ create table if not exists public.bookings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.bookings add column if not exists price integer;
 
 create index if not exists bookings_date_idx on public.bookings (booking_date);
 create index if not exists bookings_status_idx on public.bookings (status);

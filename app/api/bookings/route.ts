@@ -3,8 +3,9 @@ import { bookingSchema, bookingUpdateSchema } from "@/lib/validations";
 import { bookingBlocksSlot, generateBookingCode, slotConflicts, slotFitsSchedule } from "@/lib/booking-utils";
 import { getSupabaseAdmin, isProductionStorageRequired } from "@/lib/supabase";
 import { readLocalBookings, writeLocalBookings } from "@/lib/local-bookings";
-import { company, services } from "@/lib/constants";
+import { company, getServicePrice, services } from "@/lib/constants";
 import { isAdminRequest } from "@/lib/admin-auth";
+import { sendBookingRequestEmails } from "@/lib/booking-email";
 import type { Booking } from "@/types/booking";
 
 export async function GET(request: Request) {
@@ -80,6 +81,7 @@ async function handlePost(request: Request) {
   }
 
   const now = new Date().toISOString();
+  const price = getServicePrice(service.id, parsed.data.vehicle_type);
   const supabase = getSupabaseAdmin();
   const blocksSlot = (booking: Booking) =>
     booking.booking_date === parsed.data.booking_date &&
@@ -97,10 +99,11 @@ async function handlePost(request: Request) {
       return NextResponse.json({ error: "Ese horario acaba de ser reservado. Elige otro bloque disponible." }, { status: 409 });
     }
     const { count } = await supabase.from("bookings").select("id", { count: "exact", head: true });
-    const booking = createBooking(parsed.data, service.name, generateBookingCode((count || 0) + 1), now);
+    const booking = createBooking(parsed.data, service.name, price, generateBookingCode((count || 0) + 1), now);
     const { data, error } = await supabase.from("bookings").insert(booking).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ booking: data, message: `Tu solicitud fue enviada correctamente. El horario se mantendrá reservado por ${company.pendingHoldMinutes} minutos mientras Aurocar revisa la cita.` });
+    const emailDelivery = await sendBookingRequestEmails(data as Booking);
+    return NextResponse.json({ booking: data, emailDelivery, message: bookingSuccessMessage(emailDelivery.customer) });
   }
 
   if (isProductionStorageRequired()) return storageUnavailable();
@@ -109,11 +112,12 @@ async function handlePost(request: Request) {
   if (bookings.some(blocksSlot)) {
     return NextResponse.json({ error: "Ese horario acaba de ser reservado. Elige otro bloque disponible." }, { status: 409 });
   }
-  const booking = createBooking(parsed.data, service.name, generateBookingCode(bookings.length + 1), now);
+  const booking = createBooking(parsed.data, service.name, price, generateBookingCode(bookings.length + 1), now);
   bookings.push(booking);
   await writeLocalBookings(bookings);
+  const emailDelivery = await sendBookingRequestEmails(booking);
 
-  return NextResponse.json({ booking, message: `Tu solicitud fue enviada correctamente. El horario se mantendrá reservado por ${company.pendingHoldMinutes} minutos mientras Aurocar revisa la cita.` });
+  return NextResponse.json({ booking, emailDelivery, message: bookingSuccessMessage(emailDelivery.customer) });
 }
 
 async function handlePatch(request: Request) {
@@ -166,7 +170,7 @@ async function handlePatch(request: Request) {
   return NextResponse.json({ booking: bookings[index] });
 }
 
-function createBooking(data: Record<string, unknown>, serviceName: string, code: string, now: string): Booking {
+function createBooking(data: Record<string, unknown>, serviceName: string, price: number | null, code: string, now: string): Booking {
   return {
     id: crypto.randomUUID(),
     booking_code: code,
@@ -179,6 +183,7 @@ function createBooking(data: Record<string, unknown>, serviceName: string, code:
     vehicle_type: String(data.vehicle_type),
     service_id: String(data.service_id),
     service_name: serviceName,
+    price,
     booking_date: String(data.booking_date),
     booking_time: String(data.booking_time),
     notes: data.notes ? String(data.notes) : null,
@@ -189,6 +194,11 @@ function createBooking(data: Record<string, unknown>, serviceName: string, code:
     created_at: now,
     updated_at: now
   };
+}
+
+function bookingSuccessMessage(customerEmailSent: boolean) {
+  const holdMessage = `Tu solicitud fue enviada correctamente. El horario se mantendrá reservado por ${company.pendingHoldMinutes} minutos mientras Aurocar revisa la cita.`;
+  return customerEmailSent ? `${holdMessage} También enviamos el comprobante a tu correo.` : holdMessage;
 }
 
 function filterQuery(bookings: Booking[], query?: string) {

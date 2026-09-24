@@ -1,5 +1,7 @@
 export type ServiceCategory = "lavado" | "tapiceria" | "premium" | "focos";
 
+export type VehicleType = "City car" | "Sedan" | "SUV" | "Camioneta XL" | "Furgon";
+
 export type AurocarService = {
   id: string;
   slug: string;
@@ -9,7 +11,7 @@ export type AurocarService = {
   image: string;
   durationMinutes: number;
   priceLabel: string;
-  price?: number;
+  prices?: Partial<Record<VehicleType, number>>;
   includes: string[];
   benefits?: string[];
 };

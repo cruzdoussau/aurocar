@@ -19,7 +19,7 @@ import {
   XCircle
 } from "lucide-react";
 import { bookingBlocksSlot, buildWhatsAppMessage, formatHumanDate } from "@/lib/booking-utils";
-import { bookingStatuses, company, services } from "@/lib/constants";
+import { bookingStatuses, company, formatPrice, services } from "@/lib/constants";
 import type { Booking, BookingStatus, PaymentStatus } from "@/types/booking";
 
 const statusLabels: Record<BookingStatus, string> = {
@@ -187,6 +187,7 @@ function BookingCard({ booking, busy, onUpdate, onCopy }: { booking: Booking; bu
             <p className="text-xs font-black uppercase tracking-wide text-electric">Servicio solicitado</p>
             <p className="mt-1 text-lg font-black text-white">{booking.service_name}</p>
             <p className="mt-1 text-sm text-sky-100/70">{service?.durationMinutes || 60} min · {booking.vehicle_type}{booking.vehicle_brand !== "No informado" ? ` · ${booking.vehicle_brand} ${booking.vehicle_model}` : ""}</p>
+            <p className="mt-2 text-base font-black text-green-300">{formatPrice(booking.price)}</p>
           </div>
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-300"><span className="inline-flex items-center gap-2"><CalendarCheck className="text-electric" size={16} />{formatHumanDate(booking.booking_date)}</span><span className="inline-flex items-center gap-2"><Clock3 className="text-electric" size={16} />{booking.booking_time} hrs</span></div>
           {booking.license_plate !== "No informada" ? <p className="mt-3 text-sm text-slate-400">Patente: <strong className="text-white">{booking.license_plate}</strong></p> : null}
